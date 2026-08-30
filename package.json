@@ -1,0 +1,32 @@
+{
+  "name": "bot-anti-raid-security",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Discord anti-raid security bot with realtime detection, lockdown, snapshots, and recovery.",
+  "type": "module",
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "commands:deploy": "tsx src/deploy-commands.ts"
+  },
+  "dependencies": {
+    "discord.js": "14.27.0",
+    "dotenv": "17.4.2",
+    "pino": "10.3.1",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "26.4.0",
+    "tsx": "4.23.13",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
+  }
+}
