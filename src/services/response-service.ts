@@ -87,11 +87,21 @@ export class ResponseService {
 
   async enableLockdown(guild: Guild, reason: string, force = false): Promise<number> {
     if (this.isLockedDown(guild.id) && !force) return 0;
+
+    const me = guild.members.me;
+    if (!me) return 0;
+
     const editable = guild.channels.cache.filter(
-      (channel) => !channel.isThread() && channel.type !== ChannelType.GuildCategory,
+      (channel) =>
+        !channel.isThread() &&
+        channel.type !== ChannelType.GuildCategory &&
+        "permissionOverwrites" in channel &&
+        channel.permissionsFor(me)?.has(PermissionFlagsBits.ManageChannels),
     );
+
     let changed = 0;
     for (const channel of editable.values()) {
+      if (!("permissionOverwrites" in channel)) continue;
       try {
         await channel.permissionOverwrites.edit(
           guild.roles.everyone,
@@ -99,8 +109,10 @@ export class ResponseService {
           { reason: `Bot Anti-Raid Security lockdown: ${reason}` },
         );
         changed += 1;
-      } catch (error) {
-        logger.warn({ guildId: guild.id, channelId: channel.id, error }, "Không thể khóa channel");
+      } catch (error: any) {
+        if (error?.code !== 50001 && error?.code !== 50013) {
+          logger.warn({ guildId: guild.id, channelId: channel.id, message: error?.message }, "Không thể khóa channel");
+        }
       }
     }
     const config = this.store.getConfig(guild.id);
@@ -110,10 +122,21 @@ export class ResponseService {
   }
 
   async disableLockdown(guild: Guild): Promise<number> {
+    const me = guild.members.me;
+    if (!me) return 0;
+
     const snapshot = this.store.getSnapshot(guild.id);
     let changed = 0;
     for (const channel of guild.channels.cache.values()) {
-      if (channel.isThread() || channel.type === ChannelType.GuildCategory) continue;
+      if (
+        channel.isThread() ||
+        channel.type === ChannelType.GuildCategory ||
+        !("permissionOverwrites" in channel) ||
+        !channel.permissionsFor(me)?.has(PermissionFlagsBits.ManageChannels)
+      ) {
+        continue;
+      }
+
       const saved = snapshot?.channels.find((item) => item.id === channel.id);
       const everyone = saved?.permissionOverwrites.find((item) => item.id === guild.id);
       const allow = new PermissionsBitField(everyone ? BigInt(everyone.allow) : 0n);
@@ -129,8 +152,10 @@ export class ResponseService {
           reason: "Bot Anti-Raid Security: gỡ lockdown",
         });
         changed += 1;
-      } catch (error) {
-        logger.warn({ guildId: guild.id, channelId: channel.id, error }, "Không thể mở khóa channel");
+      } catch (error: any) {
+        if (error?.code !== 50001 && error?.code !== 50013) {
+          logger.warn({ guildId: guild.id, channelId: channel.id, message: error?.message }, "Không thể mở khóa channel");
+        }
       }
     }
     const config = this.store.getConfig(guild.id);

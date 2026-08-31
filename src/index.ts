@@ -62,6 +62,8 @@ client.once(Events.ClientReady, (readyClient) => {
   void licenseScheduler.checkAllGuilds();
 
   for (const guild of readyClient.guilds.cache.values()) {
+    const lic = licenseService.getLicense(guild.id);
+    if (!lic.active) continue;
     if (!responses.isLockedDown(guild.id)) continue;
     void responses
       .enableLockdown(guild, "khôi phục trạng thái sau restart", true)
@@ -70,6 +72,9 @@ client.once(Events.ClientReady, (readyClient) => {
 
   setInterval(() => {
     for (const guild of readyClient.guilds.cache.values()) {
+      const lic = licenseService.getLicense(guild.id);
+      if (!lic.active) continue;
+
       const config = store.getConfig(guild.id);
       if (
         !config.enabled ||
