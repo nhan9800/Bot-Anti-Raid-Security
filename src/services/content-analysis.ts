@@ -34,6 +34,11 @@ const TRUSTED_HOSTS = [
   "support.discord.com",
   "steamcommunity.com",
   "store.steampowered.com",
+  "mimibot.id.vn",
+  "youtube.com",
+  "youtu.be",
+  "google.com",
+  "github.com",
 ];
 
 const LURE_TERMS = [
@@ -47,6 +52,11 @@ const LURE_TERMS = [
   "mien phi nitro",
   "nhan nitro",
   "xac minh tai khoan",
+  "nhan qua",
+  "claim nitro",
+  "free bot",
+  "nhan discord nitro",
+  "tang nitro",
 ];
 
 export interface ContentAssessment {
@@ -78,7 +88,7 @@ export function assessContent(input: string): ContentAssessment {
   const impersonatesKnownBrand = domains.some(
     (domain) =>
       !isTrustedHost(domain) &&
-      (domain.includes("discord") || domain.includes("nitro") || domain.includes("steamcommunity")),
+      (domain.includes("discord") || domain.includes("nitro") || domain.includes("steamcommunity") || domain.includes("steancommunity") || domain.includes("discrod") || domain.includes("dlscord")),
   );
   const rawIpLink = domains.some((domain) => /^\d{1,3}(?:\.\d{1,3}){3}$/.test(domain));
   const hasUntrustedHost = domains.some((domain) => !isTrustedHost(domain));

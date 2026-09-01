@@ -5,9 +5,17 @@ import {
   Events,
   GatewayIntentBits,
   Partials,
+  REST,
+  Routes,
 } from "discord.js";
-import { GuardCommandHandler } from "./commands/guard-command.js";
-import { LicenseCommandHandler } from "./commands/license-command.js";
+import { GuardCommandHandler, guardCommand } from "./commands/guard-command.js";
+import {
+  LicenseCommandHandler,
+  kichhoatCommand,
+  licenseCommand,
+  xacnhanCommand,
+  genkeyCommand,
+} from "./commands/license-command.js";
 import { env } from "./config.js";
 import { logger } from "./logger.js";
 import { JsonStore } from "./store/json-store.js";
@@ -57,6 +65,24 @@ client.once(Events.ClientReady, (readyClient) => {
     { userId: readyClient.user.id, guilds: readyClient.guilds.cache.size },
     "MIMI SHIELD BOT (Anti-Raid Security) đã sẵn sàng hoạt động!"
   );
+
+  // Tự động đồng bộ Slash Commands
+  void (async () => {
+    try {
+      const rest = new REST({ version: "10" }).setToken(env.BOT_TOKEN);
+      const allCommands = [
+        guardCommand.toJSON(),
+        kichhoatCommand.toJSON(),
+        licenseCommand.toJSON(),
+        xacnhanCommand.toJSON(),
+        genkeyCommand.toJSON(),
+      ];
+      await rest.put(Routes.applicationCommands(readyClient.user.id), { body: allCommands });
+      logger.info({ count: allCommands.length }, "Tự động đồng bộ Slash Commands MIMI SHIELD thành công");
+    } catch (e: any) {
+      logger.warn({ error: e?.message }, "Không thể tự động đồng bộ Slash Commands khi khởi động");
+    }
+  })();
 
   // Khởi động bộ quét bản quyền & auto-leave cho server chưa kích hoạt
   licenseScheduler.start(10);
