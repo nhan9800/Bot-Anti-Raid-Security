@@ -7,16 +7,32 @@ import {
 } from "discord.js";
 import { LicenseService, LicenseInfo } from "./license-service.js";
 import { logger } from "../logger.js";
+import type { JsonStore } from "../store/json-store.js";
+import type { ResponseService } from "./response-service.js";
+import type { SnapshotService } from "./snapshot-service.js";
+import { unlockGuildProtection } from "./unlock-service.js";
 
 const HOME_GUILD_IDS = ["1517068246493429852"];
 
 export class LicenseScheduler {
   private readonly licenseService: LicenseService;
   private readonly client: Client;
+  private readonly store: JsonStore | undefined;
+  private readonly responses: ResponseService | undefined;
+  private readonly snapshots: SnapshotService | undefined;
 
-  constructor(licenseService: LicenseService, client: Client) {
+  constructor(
+    licenseService: LicenseService,
+    client: Client,
+    store?: JsonStore | undefined,
+    responses?: ResponseService | undefined,
+    snapshots?: SnapshotService | undefined
+  ) {
     this.licenseService = licenseService;
     this.client = client;
+    this.store = store;
+    this.responses = responses;
+    this.snapshots = snapshots;
   }
 
   private findNotifyChannel(guild: Guild) {
@@ -184,6 +200,17 @@ export class LicenseScheduler {
     if (!guild || HOME_GUILD_IDS.includes(guild.id)) return;
 
     const lic = this.licenseService.getLicense(guild.id);
+    if (lic.active) {
+      logger.info(
+        { guildId: guild.id, guildName: guild.name },
+        "MIMI SHIELD vừa tham gia server đã có bản quyền -> Kích hoạt mở khóa bảo vệ 24/7"
+      );
+      if (this.store && this.responses && this.snapshots) {
+        await unlockGuildProtection(guild.id, this.store, this.responses, this.snapshots, this.client);
+      }
+      return;
+    }
+
     if (!lic.active) {
       logger.info(
         { guildId: guild.id, guildName: guild.name },

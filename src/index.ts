@@ -45,7 +45,7 @@ const security = new SecurityEngine(store, trust, snapshots, responses);
 const messageGuard = new MessageGuard(store, responses);
 const guardCommands = new GuardCommandHandler(store, snapshots, responses);
 const licenseCommands = new LicenseCommandHandler(licenseService, store, responses, snapshots, client);
-const licenseScheduler = new LicenseScheduler(licenseService, client);
+const licenseScheduler = new LicenseScheduler(licenseService, client, store, responses, snapshots);
 const snapshotJobs = new Set<string>();
 
 client.once(Events.ClientReady, (readyClient) => {

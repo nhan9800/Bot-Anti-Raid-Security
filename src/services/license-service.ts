@@ -1,6 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { randomBytes } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
+
+const MIMI_LICENSE_SECRET = "MIMI_SHIELD_SECURE_AUTH_2026";
 import { logger } from "../logger.js";
 
 export interface LicensePlan {
@@ -274,18 +276,31 @@ export class LicenseService {
   }
 
   public generateKey(planType = "1m", note = "", createdBy = "Admin"): LicenseKeyObj {
-    const plan = PLANS[planType] || PLANS["1m"]!;
-    const part1 = randomBytes(2).toString("hex").toUpperCase();
-    const part2 = randomBytes(2).toString("hex").toUpperCase();
-    const part3 = randomBytes(2).toString("hex").toUpperCase();
-    const key = `MIMI-SHIELD-${part1}-${part2}-${part3}`;
+    let planNorm = String(planType || "1m").toUpperCase();
+    if (planNorm === "PERMANENT" || planNorm === "PERM") planNorm = "PERM";
+    if (!["1M", "3M", "12M", "PERM"].includes(planNorm)) planNorm = "1M";
+
+    const entropy = randomBytes(3).toString("hex").toUpperCase();
+    const checksum = createHmac("sha256", MIMI_LICENSE_SECRET)
+      .update(`${planNorm}:${entropy}`)
+      .digest("hex")
+      .slice(0, 4)
+      .toUpperCase();
+
+    const key = `MIMI-SHIELD-${planNorm}-${entropy}-${checksum}`;
+
+    let durationDays = 30;
+    let planName = "Gói 1 Tháng (30 ngày)";
+    if (planNorm === "3M") { durationDays = 90; planName = "Gói 3 Tháng (90 ngày)"; }
+    else if (planNorm === "12M") { durationDays = 365; planName = "Gói 12 Tháng (365 ngày)"; }
+    else if (planNorm === "PERM") { durationDays = 36500; planName = "Gói Vĩnh Viễn (Lifetime VIP)"; }
 
     const keys = this.readJson<Record<string, LicenseKeyObj>>(this.keysFile, {});
     const keyObj: LicenseKeyObj = {
       key,
-      plan: plan.id,
-      planName: plan.name,
-      durationDays: plan.durationDays,
+      plan: planNorm.toLowerCase(),
+      planName,
+      durationDays,
       createdAt: new Date().toISOString(),
       createdBy,
       note,
@@ -297,7 +312,7 @@ export class LicenseService {
 
     keys[key] = keyObj;
     this.writeJson(this.keysFile, keys);
-    logger.info({ key, plan: plan.id, createdBy }, "Đã tạo License Key mới");
+    logger.info({ key, plan: planNorm, createdBy }, "Đã tạo License Key HMAC mới");
     return keyObj;
   }
 
@@ -319,11 +334,70 @@ export class LicenseService {
     }
 
     const key = rawKey.trim().toUpperCase();
+
+    // 1. Kiểm tra Signed Key HMAC MIMI-SHIELD-{PLAN}-{ENTROPY}-{CHECKSUM}
+    const match = key.match(/^MIMI-SHIELD-(1M|3M|12M|PERM)-([0-9A-F]{4,8})-([0-9A-F]{4})$/);
+    if (match) {
+      const [, planCode, entropy, checksum] = match;
+      const expectedChecksum = createHmac("sha256", MIMI_LICENSE_SECRET)
+        .update(`${planCode}:${entropy}`)
+        .digest("hex")
+        .slice(0, 4)
+        .toUpperCase();
+
+      if (checksum === expectedChecksum) {
+        const keys = this.readJson<Record<string, LicenseKeyObj>>(this.keysFile, {});
+        if (keys[key]?.isRedeemed) {
+          return {
+            ok: false,
+            error: `Mã Key này đã được sử dụng cho Server ${keys[key].redeemedGuildId || "khác"} lúc ${keys[key].redeemedAt}.`,
+          };
+        }
+
+        let planType = "1m";
+        let durationDays = 30;
+        let planName = "Gói 1 Tháng (30 ngày)";
+        if (planCode === "3M") { planType = "3m"; durationDays = 90; planName = "Gói 3 Tháng (90 ngày)"; }
+        else if (planCode === "12M") { planType = "12m"; durationDays = 365; planName = "Gói 12 Tháng (365 ngày)"; }
+        else if (planCode === "PERM") { planType = "permanent"; durationDays = 36500; planName = "Gói Vĩnh Viễn (Lifetime VIP)"; }
+
+        keys[key] = {
+          key,
+          plan: planType,
+          planName,
+          durationDays,
+          createdAt: new Date().toISOString(),
+          createdBy: "Signature Auth",
+          note: `Redeemed by ${redeemedBy}`,
+          isRedeemed: true,
+          redeemedBy,
+          redeemedAt: new Date().toISOString(),
+          redeemedGuildId: guildId,
+        };
+        this.writeJson(this.keysFile, keys);
+
+        const updatedLic = this.grantLicense(
+          guildId,
+          planType,
+          durationDays,
+          `Redeemed Signed Key: ${key} by ${redeemedBy}`
+        );
+
+        return {
+          ok: true,
+          license: updatedLic,
+          daysAdded: durationDays,
+          planName,
+        };
+      }
+    }
+
+    // 2. Kiểm tra Local keysFile nếu là legacy key
     const keys = this.readJson<Record<string, LicenseKeyObj>>(this.keysFile, {});
     const keyObj = keys[key];
 
     if (!keyObj) {
-      return { ok: false, error: "Mã License Key không tồn tại hoặc sai định dạng." };
+      return { ok: false, error: "Mã License Key không tồn tại hoặc sai cú pháp." };
     }
 
     if (keyObj.isRedeemed) {

@@ -11,7 +11,7 @@ import { ResponseService } from "../services/response-service.js";
 import { SnapshotService } from "../services/snapshot-service.js";
 import { unlockGuildProtection } from "../services/unlock-service.js";
 
-const OWNER_ID = "1138315103821889566";
+const BOT_OWNER_IDS = ["1143387904064888942", "1138315103821889566", "1516603522584416376"];
 
 export const kichhoatCommand = new SlashCommandBuilder()
   .setName("kichhoat")
@@ -205,7 +205,7 @@ export class LicenseCommandHandler {
   }
 
   public async handleXacnhan(interaction: ChatInputCommandInteraction): Promise<void> {
-    const isOwner = interaction.user.id === OWNER_ID;
+    const isOwner = BOT_OWNER_IDS.includes(interaction.user.id);
     if (!isOwner && !interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
       await interaction.reply({ content: "❌ Chỉ Quản trị viên / Owner mới có quyền duyệt bản quyền.", ephemeral: true });
       return;
@@ -263,7 +263,7 @@ export class LicenseCommandHandler {
   }
 
   public async handleGenkey(interaction: ChatInputCommandInteraction): Promise<void> {
-    const isOwner = interaction.user.id === OWNER_ID;
+    const isOwner = BOT_OWNER_IDS.includes(interaction.user.id);
     if (!isOwner && !interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
       await interaction.reply({ content: "❌ Chỉ Quản trị viên / Creator mới có quyền tạo mã Key.", ephemeral: true });
       return;
