@@ -140,16 +140,16 @@ export class ResponseService {
       const saved = snapshot?.channels.find((item) => item.id === channel.id);
       const everyone = saved?.permissionOverwrites.find((item) => item.id === guild.id);
       const allow = new PermissionsBitField(everyone ? BigInt(everyone.allow) : 0n);
-      const deny = new PermissionsBitField(everyone ? BigInt(everyone.deny) : 0n);
+      // Gỡ bỏ hoàn toàn mọi cấm đoán (đặt null để inherit/cho phép chat, hoặc true nếu snapshot cho phép)
       const restored = Object.fromEntries(
         LOCKDOWN_PERMISSIONS.map((permission) => {
           const bit = PermissionFlagsBits[permission];
-          return [permission, allow.has(bit) ? true : deny.has(bit) ? false : null];
+          return [permission, allow.has(bit) ? true : null];
         }),
       );
       try {
         await channel.permissionOverwrites.edit(guild.roles.everyone, restored, {
-          reason: "Bot Anti-Raid Security: gỡ lockdown",
+          reason: "MIMI SHIELD: mở khóa toàn bộ kênh cho thành viên chat bình thường",
         });
         changed += 1;
       } catch (error: any) {

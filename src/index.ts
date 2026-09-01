@@ -88,20 +88,26 @@ client.once(Events.ClientReady, (readyClient) => {
   licenseScheduler.start(10);
   void licenseScheduler.checkAllGuilds();
 
+  // Tự động mở khóa toàn bộ kênh trên tất cả các server khi bot bật lên
   for (const guild of readyClient.guilds.cache.values()) {
     const lic = licenseService.getLicense(guild.id);
-    if (!lic.active) continue;
-
-    // Đảm bảo máy chủ đã kích hoạt bản quyền luôn được mở khóa bảo vệ 100%
-    const config = store.getConfig(guild.id);
-    if (!config.enabled) {
-      void unlockGuildProtection(guild.id, store, responses, snapshots, readyClient);
+    if (lic.active) {
+      const config = store.getConfig(guild.id);
+      if (!config.enabled) {
+        void unlockGuildProtection(guild.id, store, responses, snapshots, readyClient);
+      }
     }
 
-    // Không tự động khóa lại kênh khi restart để tránh gây phiền hà người dùng
-    if (responses.isLockedDown(guild.id)) {
-      logger.info({ guildId: guild.id }, "Máy chủ đang trong trạng thái lockdown.");
-    }
+    void (async () => {
+      try {
+        const count = await responses.disableLockdown(guild);
+        if (count > 0) {
+          logger.info({ guildId: guild.id, unlocked: count }, "Đã tự động mở khóa toàn bộ các kênh trên server!");
+        }
+      } catch (err: any) {
+        logger.error({ guildId: guild.id, error: err?.message }, "Lỗi khi tự động mở khóa server");
+      }
+    })();
   }
 
   setInterval(() => {
@@ -237,6 +243,22 @@ const healthServer = createServer((request: IncomingMessage, response: ServerRes
   const pathname = urlObj.pathname;
 
   void (async () => {
+    if (pathname === "/api/admin/unlock-all") {
+      let totalUnlocked = 0;
+      const results: Array<{ guildId: string; name: string; unlocked: number }> = [];
+      for (const guild of client.guilds.cache.values()) {
+        try {
+          const count = await responses.disableLockdown(guild);
+          totalUnlocked += count;
+          results.push({ guildId: guild.id, name: guild.name, unlocked: count });
+        } catch (e: any) {
+          logger.error({ guildId: guild.id, error: e?.message }, "Lỗi mở khóa server");
+        }
+      }
+      response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, totalUnlocked, results }));
+      return;
+    }
+
     if (pathname === "/health" || pathname === "/status") {
       response
         .writeHead(client.isReady() ? 200 : 503, { "content-type": "application/json; charset=utf-8" })
