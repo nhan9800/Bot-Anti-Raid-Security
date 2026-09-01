@@ -1,10 +1,15 @@
 import {
   ChatInputCommandInteraction,
+  Client,
   EmbedBuilder,
   PermissionFlagsBits,
   SlashCommandBuilder,
 } from "discord.js";
 import { LicenseService } from "../services/license-service.js";
+import { JsonStore } from "../store/json-store.js";
+import { ResponseService } from "../services/response-service.js";
+import { SnapshotService } from "../services/snapshot-service.js";
+import { unlockGuildProtection } from "../services/unlock-service.js";
 
 const OWNER_ID = "1138315103821889566";
 
@@ -75,9 +80,23 @@ export const genkeyCommand = new SlashCommandBuilder()
 
 export class LicenseCommandHandler {
   private readonly licenseService: LicenseService;
+  private readonly store: JsonStore;
+  private readonly responses: ResponseService;
+  private readonly snapshots: SnapshotService;
+  private readonly client: Client;
 
-  constructor(licenseService: LicenseService) {
+  constructor(
+    licenseService: LicenseService,
+    store: JsonStore,
+    responses: ResponseService,
+    snapshots: SnapshotService,
+    client: Client
+  ) {
     this.licenseService = licenseService;
+    this.store = store;
+    this.responses = responses;
+    this.snapshots = snapshots;
+    this.client = client;
   }
 
   public async handleKichhoat(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -97,12 +116,27 @@ export class LicenseCommandHandler {
       return;
     }
 
+    // 🚀 TỰ ĐỘNG MỞ KHÓA HOÀN TOÀN HỆ THỐNG BẢO VỆ
+    const unlock = await unlockGuildProtection(
+      interaction.guild.id,
+      this.store,
+      this.responses,
+      this.snapshots,
+      this.client
+    );
+
     const embed = new EmbedBuilder()
-      .setColor("#2ECC71")
-      .setTitle("🎉 KÍCH HOẠT BẢN QUYỀN THÀNH CÔNG!")
+      .setColor("#00FFA3")
+      .setTitle("🎉 KÍCH HOẠT BẢN QUYỀN & MỞ KHÓA TOÀN DIỆN THÀNH CÔNG!")
       .setDescription(
-        `Chúc mừng máy chủ **${interaction.guild.name}** đã kích hoạt thành công gói **${result.planName}**!\n` +
-          `Toàn bộ hệ thống bảo vệ Anti-Raid & Anti-Nuke đã được mở khóa và bảo vệ 24/7.`
+        `Chúc mừng máy chủ **${interaction.guild.name}** đã kích hoạt thành công gói **${result.planName}**!\n\n` +
+          `🛡️ **HỆ THỐNG AN NINH ĐÃ TỰ ĐỘNG MỞ KHÓA 100%:**\n` +
+          `• 🟢 **Lá Chắn Anti-Raid:** TỰ ĐỘNG BẬT (Bảo vệ 24/7)\n` +
+          `• ⚡ **Anti-Nuke Kênh & Role:** Phản xạ 0.1s sẵn sàng\n` +
+          `• 🤖 **Chống Bot Lạ & Webhook:** Tự động kick/ban bot chưa xác minh\n` +
+          `• 👥 **Message Guard:** Quét mã độc & link lừa đảo realtime\n` +
+          `• 📸 **Snapshot Cấu Trúc:** ${unlock.snapshotTaken ? "Đã sao lưu an toàn toàn bộ channel/role gốc" : "Sẵn sàng tự động sao lưu"}\n` +
+          (unlock.channelsUnlocked > 0 ? `• 🔓 **Emergency Lockdown:** Đã tự động mở lại ${unlock.channelsUnlocked} kênh chat\n` : "")
       )
       .addFields(
         { name: "🛡️ Server ID (HWID)", value: `\`${interaction.guild.id}\``, inline: true },
@@ -192,6 +226,15 @@ export class LicenseCommandHandler {
       plan,
       null,
       `Discord Admin: ${interaction.user.tag} (${note})`
+    );
+
+    // 🚀 TỰ ĐỘNG MỞ KHÓA HOÀN TOÀN BẢO VỆ CHO MÁY CHỦ KHÁCH HÀNG
+    await unlockGuildProtection(
+      targetGuildId,
+      this.store,
+      this.responses,
+      this.snapshots,
+      this.client
     );
 
     const embed = new EmbedBuilder()

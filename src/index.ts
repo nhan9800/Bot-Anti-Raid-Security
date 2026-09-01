@@ -18,6 +18,7 @@ import { SnapshotService } from "./services/snapshot-service.js";
 import { TrustService } from "./services/trust-service.js";
 import { LicenseService } from "./services/license-service.js";
 import { LicenseScheduler } from "./services/license-scheduler.js";
+import { unlockGuildProtection } from "./services/unlock-service.js";
 
 const store = new JsonStore(env.DATA_DIR);
 await store.load();
@@ -43,7 +44,7 @@ const trust = new TrustService(() => client.user?.id);
 const security = new SecurityEngine(store, trust, snapshots, responses);
 const messageGuard = new MessageGuard(store, responses);
 const guardCommands = new GuardCommandHandler(store, snapshots, responses);
-const licenseCommands = new LicenseCommandHandler(licenseService);
+const licenseCommands = new LicenseCommandHandler(licenseService, store, responses, snapshots, client);
 const licenseScheduler = new LicenseScheduler(licenseService, client);
 const snapshotJobs = new Set<string>();
 
@@ -64,6 +65,13 @@ client.once(Events.ClientReady, (readyClient) => {
   for (const guild of readyClient.guilds.cache.values()) {
     const lic = licenseService.getLicense(guild.id);
     if (!lic.active) continue;
+
+    // Đảm bảo máy chủ đã kích hoạt bản quyền luôn được mở khóa bảo vệ 100%
+    const config = store.getConfig(guild.id);
+    if (!config.enabled) {
+      void unlockGuildProtection(guild.id, store, responses, snapshots, readyClient);
+    }
+
     if (!responses.isLockedDown(guild.id)) continue;
     void responses
       .enableLockdown(guild, "khôi phục trạng thái sau restart", true)
@@ -235,6 +243,9 @@ const healthServer = createServer((request: IncomingMessage, response: ServerRes
         return;
       }
       const result = licenseService.redeemKey(guildId, key, "Website Client");
+      if (result.ok) {
+        await unlockGuildProtection(guildId, store, responses, snapshots, client);
+      }
       response.writeHead(result.ok ? 200 : 400, { "content-type": "application/json" }).end(JSON.stringify(result));
       return;
     }
@@ -277,6 +288,7 @@ const healthServer = createServer((request: IncomingMessage, response: ServerRes
       }
 
       const updatedLic = licenseService.grantLicense(guildId, plan, null, "Admin Web Direct");
+      await unlockGuildProtection(guildId, store, responses, snapshots, client);
       response.writeHead(200, { "content-type": "application/json" }).end(
         JSON.stringify({
           ok: true,
