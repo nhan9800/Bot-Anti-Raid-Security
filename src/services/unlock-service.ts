@@ -15,25 +15,26 @@ export async function unlockGuildProtection(
   snapshotTaken: boolean;
   channelsUnlocked: number;
 }> {
+  const guild = client.guilds.cache.get(guildId);
   const config = store.getConfig(guildId);
   config.enabled = true;
   config.messageGuardEnabled = true;
-  config.lockdownActive = false;
 
-  const guild = client.guilds.cache.get(guildId);
   if (guild?.ownerId && !config.trustedUserIds.includes(guild.ownerId)) {
     config.trustedUserIds.push(guild.ownerId);
   }
-  await store.setConfig(config);
 
   let channelsUnlocked = 0;
-  if (guild && responses.isLockedDown(guildId)) {
+  if (guild) {
     try {
       channelsUnlocked = await responses.disableLockdown(guild);
     } catch (e) {
       logger.warn({ guildId, error: e }, "Không thể tự động gỡ lockdown");
     }
   }
+
+  config.lockdownActive = false;
+  await store.setConfig(config);
 
   let snapshotTaken = false;
   if (guild) {

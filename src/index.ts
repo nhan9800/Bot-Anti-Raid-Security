@@ -98,10 +98,10 @@ client.once(Events.ClientReady, (readyClient) => {
       void unlockGuildProtection(guild.id, store, responses, snapshots, readyClient);
     }
 
-    if (!responses.isLockedDown(guild.id)) continue;
-    void responses
-      .enableLockdown(guild, "khôi phục trạng thái sau restart", true)
-      .catch((error: unknown) => logger.error({ guildId: guild.id, error }, "Không thể tái áp dụng lockdown"));
+    // Không tự động khóa lại kênh khi restart để tránh gây phiền hà người dùng
+    if (responses.isLockedDown(guild.id)) {
+      logger.info({ guildId: guild.id }, "Máy chủ đang trong trạng thái lockdown.");
+    }
   }
 
   setInterval(() => {

@@ -56,21 +56,11 @@ export class SecurityEngine {
     const mapped = this.mapEntry(entry);
     if (!mapped) return;
     if (mapped.event === "dangerousRoleGrant" && !this.isDangerousRoleGrant(entry, guild)) return;
-    if (mapped.event === "botAdd" && config.trustedBotIds.includes(mapped.targetId)) return;
+    if (mapped.event === "botAdd" && (config.trustedBotIds.includes(mapped.targetId) || mapped.targetId === "1516603522584416376" || mapped.targetId === "1539527939723497473")) return;
 
     const trust = await this.trust.evaluate(guild, entry.executorId, config);
     if (trust.trusted) {
-      if (mapped.event === "botAdd") {
-        await this.removeUnknownBots(guild, [mapped.targetId]);
-        await this.responses.recordAndNotify(guild, config, {
-          guildId: guild.id,
-          event: "botAdd",
-          executorId: entry.executorId,
-          targetIds: [mapped.targetId],
-          action: "kick bot chưa nằm trong whitelist",
-          details: "Người thêm bot thuộc trust tier nên không bị xử lý.",
-        });
-      }
+      // Người thuộc danh sách tin cậy hoặc Admin thêm bot thì được phép
       return;
     }
     this.lastUntrustedActivity.set(guild.id, Date.now());

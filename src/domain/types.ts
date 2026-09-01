@@ -94,15 +94,15 @@ export interface PersistedData {
 }
 
 export const DEFAULT_THRESHOLDS: Record<ProtectionEvent, Threshold> = {
-  memberBan: { limit: 3, windowMs: 10_000 },
-  channelDelete: { limit: 1, windowMs: 10_000 },
+  memberBan: { limit: 4, windowMs: 10_000 },
+  channelDelete: { limit: 3, windowMs: 10_000 },
   channelCreate: { limit: 5, windowMs: 10_000 },
-  channelUpdate: { limit: 5, windowMs: 15_000 },
-  roleDelete: { limit: 1, windowMs: 10_000 },
-  roleUpdate: { limit: 3, windowMs: 10_000 },
-  botAdd: { limit: 1, windowMs: 30_000 },
-  webhookCreate: { limit: 1, windowMs: 10_000 },
-  dangerousRoleGrant: { limit: 1, windowMs: 10_000 },
+  channelUpdate: { limit: 8, windowMs: 15_000 },
+  roleDelete: { limit: 3, windowMs: 10_000 },
+  roleUpdate: { limit: 5, windowMs: 10_000 },
+  botAdd: { limit: 3, windowMs: 20_000 },
+  webhookCreate: { limit: 3, windowMs: 10_000 },
+  dangerousRoleGrant: { limit: 3, windowMs: 10_000 },
 };
 
 export function createDefaultGuildConfig(guildId: string): GuildConfig {
@@ -114,8 +114,8 @@ export function createDefaultGuildConfig(guildId: string): GuildConfig {
     trustedUserIds: [],
     trustedRoleIds: [],
     trustedBotIds: [],
-    enforcementAction: "ban",
-    lockdownOnCritical: true,
+    enforcementAction: "quarantine",
+    lockdownOnCritical: false,
     lockdownActive: false,
     thresholds: structuredClone(DEFAULT_THRESHOLDS),
     createdAt: now,

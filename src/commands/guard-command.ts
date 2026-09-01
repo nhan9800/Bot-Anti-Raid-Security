@@ -151,6 +151,11 @@ export const guardCommand = new SlashCommandBuilder()
           .addChoices({ name: "Bật", value: "on" }, { name: "Gỡ", value: "off" }),
       ),
   )
+  .addSubcommand((command) =>
+    command
+      .setName("unlock")
+      .setDescription("Mở khóa toàn bộ kênh ngay lập tức và khôi phục quyền chat cho mọi người"),
+  )
   .addSubcommand((command) => command.setName("incidents").setDescription("Xem 10 sự cố gần nhất"));
 
 export class GuardCommandHandler {
@@ -220,6 +225,9 @@ export class GuardCommandHandler {
         break;
       case "lockdown":
         await this.lockdown(interaction, guild);
+        break;
+      case "unlock":
+        await this.unlock(interaction, guild);
         break;
       case "incidents":
         await interaction.editReply({ embeds: [this.incidentsEmbed(guild)] });
@@ -353,6 +361,22 @@ export class GuardCommandHandler {
     await interaction.editReply(
       `${emoji.restore} Đã khôi phục ${summary.restoredChannels} channel và ${summary.restoredRoles} role. Lỗi: ${summary.failed.length}.`,
     );
+  }
+
+  private async unlock(
+    interaction: ChatInputCommandInteraction<"cached">,
+    guild: Guild,
+  ): Promise<void> {
+    const changed = await this.responses.disableLockdown(guild);
+    const config = this.store.getConfig(guild.id);
+    await this.responses.recordAndNotify(guild, config, {
+      guildId: guild.id,
+      event: "manualLockdown",
+      executorId: interaction.user.id,
+      targetIds: [],
+      action: `gỡ lockdown ${changed} kênh`,
+    });
+    await interaction.editReply(`${emoji.lock} Đã gỡ bỏ Lockdown thành công trên **${changed} kênh**! Tất cả mọi người có thể chat bình thường.`);
   }
 
   private async lockdown(
